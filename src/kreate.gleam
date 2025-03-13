@@ -273,15 +273,15 @@ pred CorrectFeatureAtom(FeatureAtom a) <->
 pred conformantType(Type substituted, Type substituting) <->
     superclass+(substituting, substituted).
 
+propagation rule FeaturesSubsetThings(Feature f) <->
+    f != things
+==>
+    subsettedFeature(f, things).
 
-
-error pred NotSubsettingThings(Feature f) <->
-    f != things,
-    !subsettedFeature(f, things).
-
-error pred NotSubclassifyingAnything(Type t) <->
-    t != Anything,
-    !subclass(Anything, t).
+propagation rule TypesSubclassifyAnyting(Type t) <->
+    t != Anything
+==>
+    subclass(Anything, t).
 
 error pred IncorrectFeatureAtom(FeatureAtom a) <->
     !CorrectFeatureAtom(a).
