@@ -192,13 +192,13 @@ fn feature_template(c: String, f: String, others: List(String)) {
   <> f
   <> ")."
   <> "\n"
-  <> "subsettingFeature(things, "
+  <> "subsettedFeature("
   <> f
-  <> ")."
+  <> ", things)."
   <> "\n"
-  <> "subclass(Anything, "
+  <> "superclass("
   <> f
-  <> ")."
+  <> ", Anything)."
   <> "\n"
   <> others |> string.join("\n")
   <> "\n"
@@ -209,9 +209,9 @@ fn classifier_template(c: String, body: List(String)) {
   <> c
   <> ")."
   <> "\n"
-  <> "subclass(Anything, "
+  <> "superclass("
   <> c
-  <> ")."
+  <> ", Anything)."
   <> "\n"
   <> body |> string.join("\n")
   <> "\n"
@@ -224,10 +224,9 @@ fn print_base_framework() {
 //Base framework
 
 abstract class Type {
-  Type[0..*] superclass opposite subclass
-  Type[0..*] subclass opposite superclass
+  Type[0..*] superclass
 }
-default !subclass(*, *).
+default !superclass(*, *).
 
 class Classifier extends Type {
     Feature[0..*] typeFeaturing
@@ -239,18 +238,17 @@ Classifier(Anything). atom Anything.
 
 class Feature extends Type {
   Classifier[1..*] featureTyping
-  Feature[0..*] subsettingFeature opposite subsettedFeature
-  Feature[0..*] subsettedFeature opposite subsettingFeature
+  Feature[0..*] subsettedFeature
 }
 !exists(Feature::new).
 default !featureTyping(*, *).
-default !subsettingFeature(*, *).
+default !subsettedFeature(*, *).
 
 Feature(things). atom things.
 typeFeaturing(Anything, things).
 featureTyping(things, Anything).
 
-subclass(Anything, things).
+superclass(things, Anything).
 class Atom {
     Classifier[1] of
 }
@@ -281,7 +279,7 @@ propagation rule FeaturesSubsetThings(Feature f) <->
 propagation rule TypesSubclassifyAnyting(Type t) <->
     t != Anything
 ==>
-    subclass(Anything, t).
+    superclass(t, Anything).
 
 error pred IncorrectFeatureAtom(FeatureAtom a) <->
     !CorrectFeatureAtom(a).
@@ -290,7 +288,7 @@ error pred CyclicSubsetting(Feature f) <->
     subsettedFeature+(f,f).
 
 error pred CyclicSubclassification(Type t) <->
-    subclass+(t, t).
+    superclass+(t, t).
 
 error pred AtomWithoutFeatures(Atom a) <->
     Atom::of(a, c),
