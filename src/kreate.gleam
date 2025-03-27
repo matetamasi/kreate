@@ -170,15 +170,47 @@ fn redefinition_parser(feature: String) {
 }
 
 fn subsetting_template(f: String, subsetted: String) {
-  "subsettedFeature(" <> f <> ", " <> subsetted <> ")."
+  "directSubsettedFeature("
+  <> f
+  <> ", "
+  <> subsetted
+  <> ").\n"
+  <> "directSpecializedType("
+  <> f
+  <> ", "
+  <> subsetted
+  <> ")."
 }
 
 fn typed_by_template(f: String, typed_by: String) {
-  "featureTyping(" <> f <> ", " <> typed_by <> ")."
+  "featureTyping("
+  <> f
+  <> ", "
+  <> typed_by
+  <> ").\n"
+  <> "directSpecializedType("
+  <> f
+  <> ", "
+  <> typed_by
+  <> ")."
 }
 
 fn redefinition_template(f: String, redefined: String) {
-  "redefines(" <> f <> ", " <> redefined <> ")."
+  "directRedefinedFeature("
+  <> f
+  <> ", "
+  <> redefined
+  <> ").\n"
+  <> "directSubsettedFeature("
+  <> f
+  <> ", "
+  <> redefined
+  <> ").\n"
+  <> "directSpecializedType("
+  <> f
+  <> ", "
+  <> redefined
+  <> ")."
 }
 
 fn feature_template(c: String, f: String, others: List(String)) {
@@ -192,13 +224,13 @@ fn feature_template(c: String, f: String, others: List(String)) {
   <> f
   <> ")."
   <> "\n"
-  <> "subsettedFeature("
+  <> "directSubsettedFeature("
   <> f
   <> ", things)."
   <> "\n"
-  <> "superclass("
+  <> "directSpecializedType("
   <> f
-  <> ", Anything)."
+  <> ", things)."
   <> "\n"
   <> others |> string.join("\n")
   <> "\n"
@@ -209,9 +241,14 @@ fn classifier_template(c: String, body: List(String)) {
   <> c
   <> ")."
   <> "\n"
-  <> "superclass("
+  <> "directSuperclass("
   <> c
   <> ", Anything)."
+  <> "\n"
+  <> "directSpecializedType("
+  <> c
+  <> ", Anything)."
+  <> "\n"
   <> "\n"
   <> body |> string.join("\n")
   <> "\n"
@@ -222,33 +259,47 @@ fn print_base_framework() {
     "./generated.problem",
     "
 //Base framework
-
 abstract class Type {
-  Type[0..*] superclass
+    Type[0..*] directSpecializedType
+    
 }
-default !superclass(*, *).
+default !directSpecializedType(*, *).
+
+pred specializedType(Type sub, Type super) <->
+    directSpecializedType+(sub, super).
 
 class Classifier extends Type {
+    Classifier[0..*] directSuperclass subsets directSpecializedType
     Feature[0..*] typeFeaturing
 }
 !exists(Classifier::new).
 default !typeFeaturing(*, *).
+pred superclass(Classifier sub, Classifier super) <->
+    directSuperclass+(sub, super).
 
 Classifier(Anything). atom Anything.
 
 class Feature extends Type {
-  Classifier[1..*] featureTyping
-  Feature[0..*] subsettedFeature
+    Classifier[1..*] featureTyping subsets directSpecializedType
+    Feature[0..*] directSubsettedFeature subsets directSpecializedType
+    Feature[0..*] directRedefinedFeature subsets directSubsettedFeature
 }
 !exists(Feature::new).
 default !featureTyping(*, *).
-default !subsettedFeature(*, *).
+default !directSubsettedFeature(*, *).
+default !directRedefinedFeature(*, *).
+pred subsettedFeature(Feature sub, Feature super) <->
+    directSubsettedFeature+(sub,super)
+.
+pred redefinedFeature(Feature sub, Feature super) <->
+    directRedefinedFeature(sub, super)
+.
 
 Feature(things). atom things.
 typeFeaturing(Anything, things).
 featureTyping(things, Anything).
+directSpecializedType(things, Anything).
 
-superclass(things, Anything).
 class Atom {
     Classifier[1] of
 }
@@ -268,27 +319,19 @@ pred CorrectFeatureAtom(FeatureAtom a) <->
     Atom::of(da, tft),
     Atom::of(va, ftt).
 
-pred conformantType(Type substituted, Type substituting) <->
-    superclass+(substituting, substituted).
-
 propagation rule FeaturesSubsetThings(Feature f) <->
     f != things
 ==>
-    subsettedFeature(f, things).
+    directSubsettedFeature(f, things).
 
-propagation rule TypesSubclassifyAnyting(Type t) <->
-    t != Anything
+propagation rule ClassifiersSubclassifyAnyting(Classifier c) <->
+    c != Anything
 ==>
-    superclass(t, Anything).
+    superclass(c, Anything).
 
 error pred IncorrectFeatureAtom(FeatureAtom a) <->
     !CorrectFeatureAtom(a).
 
-error pred CyclicSubsetting(Feature f) <->
-    subsettedFeature+(f,f).
-
-error pred CyclicSubclassification(Type t) <->
-    superclass+(t, t).
 
 error pred AtomWithoutFeatures(Atom a) <->
     Atom::of(a, c),
@@ -299,6 +342,6 @@ error pred AtomWithoutFeatures(Atom a) <->
     typeFeaturing(c, f),
     !FeatureAtom::domain(fa, a),
     FeatureAtom::of(fa, f)
-    .",
+.",
   )
 }
