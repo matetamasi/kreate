@@ -322,7 +322,7 @@ pred CorrectFeatureAtom(FeatureAtom a) <->
 propagation rule FeaturesSubsetThings(Feature f) <->
     f != things
 ==>
-    directSubsettedFeature(f, things).
+    subsettedFeature(f, things).
 
 propagation rule ClassifiersSubclassifyAnyting(Classifier c) <->
     c != Anything
