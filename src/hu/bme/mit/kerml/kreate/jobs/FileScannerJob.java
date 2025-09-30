@@ -4,14 +4,12 @@ package hu.bme.mit.kerml.kreate.jobs;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.eclipse.core.commands.Command;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.SubMonitor;
-import org.eclipse.core.runtime.jobs.ISchedulingRule;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
@@ -22,7 +20,6 @@ import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.handlers.HandlerUtil;
-import org.omg.sysml.lang.sysml.VerificationCaseDefinition;
 
 import hu.bme.mit.kerml.kreate.KreateTranslationHandler;
 
@@ -53,8 +50,6 @@ public class FileScannerJob extends Job {
 			List<IFile> files = getSelectedFile(mainMonitor.split(5), sel);
 			
 
-			boolean foundTask = false;
-			
 			SubMonitor fileMonitor = mainMonitor.split(95);
 			fileMonitor.setWorkRemaining(files.size() * 10);
 			for (IFile file : files) {

@@ -11,6 +11,10 @@ Require-Bundle: org.eclipse.swt,
  org.eclipse.core.resources,
  org.eclipse.emf.common,
  org.eclipse.emf.ecore,
- org.omg.sysml
+ org.omg.sysml,
+ com.google.guava,
+ org.eclipse.xtext.xbase.lib,
+ org.eclipse.xtend.lib,
+ org.eclipse.xtend.lib.macro
 Automatic-Module-Name: hu.bme.mit.kerml.kreate
 Bundle-RequiredExecutionEnvironment: JavaSE-21
