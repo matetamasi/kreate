@@ -15,7 +15,7 @@ class ObjectProcessor {
 				System.out.println("Found classifier ToExecute")
 				var translation = Translator.translate(classifier, roots);
 				println("--------------------------------------------------")
-				println(translation);
+				println(Translator.userModelComment + translation + Translator.metaModel);
 			}
 		} catch(StackOverflowError e) {
 			throw new StackOverflowError("Failed to translate package: " + getName(classifier) + "\n" + e.message)
