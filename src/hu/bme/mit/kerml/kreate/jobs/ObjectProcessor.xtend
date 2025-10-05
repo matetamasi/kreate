@@ -6,6 +6,7 @@ import org.omg.sysml.lang.sysml.Package
 import java.util.Collection
 import org.omg.sysml.lang.sysml.Classifier
 import hu.bme.mit.kerml.kreate.Translator
+import hu.bme.mit.kerml.kreate.Backannotator
 
 class ObjectProcessor {
 	static def dispatch void translateRoot(Classifier classifier, Collection<EObject> roots) {
@@ -14,8 +15,9 @@ class ObjectProcessor {
 			if ("ToExecute".equals(classifier.effectiveName)) {
 				System.out.println("Found classifier ToExecute")
 				var translation = Translator.translate(classifier, roots);
-				println("--------------------------------------------------")
-				println(Translator.userModelComment + translation + Translator.metaModel);
+				var concreteModel = RefineryProcess.concretize(Translator.userModelComment + translation + Translator.metaModel)
+				System.out.println(concreteModel)
+				println(Backannotator.toKerml(concreteModel))
 			}
 		} catch(StackOverflowError e) {
 			throw new StackOverflowError("Failed to translate package: " + getName(classifier) + "\n" + e.message)
