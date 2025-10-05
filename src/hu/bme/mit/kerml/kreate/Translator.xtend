@@ -63,7 +63,11 @@ class Translator {
 	}
 	
 	def private static int upper(Feature feature) {
-		var ub = FeatureUtil.getMultiplicityRangeOf(feature.multiplicity).upperBound
+		var mul = FeatureUtil.getMultiplicityRangeOf(feature.multiplicity)
+		if (mul === null) {
+			return 1
+		}
+		var ub = mul.upperBound
 		if (ub instanceof LiteralInteger) {
 			return (ub as LiteralInteger).value
 		} else if (ub instanceof LiteralInfinity) {
@@ -74,9 +78,13 @@ class Translator {
 	}
 
 	def private static int lower(Feature feature) {
-		var lb = FeatureUtil.getMultiplicityRangeOf(feature.multiplicity).lowerBound
+		var mul = FeatureUtil.getMultiplicityRangeOf(feature.multiplicity)
+		if (mul === null) {
+			return 1
+		}
+		var lb = mul.lowerBound
 		if (lb === null) {
-			lb = FeatureUtil.getMultiplicityRangeOf(feature.multiplicity).upperBound
+			lb = mul.upperBound
 		}
 		if (lb instanceof LiteralInteger) {
 			return (lb as LiteralInteger).value
@@ -220,7 +228,7 @@ class Translator {
 		    Atom::of(domainAtom, domainType),
 		    typeFeaturing(domainType, feature),
 		    featureTyping(feature, valueType),
-		    count { must featureAtomOfType(a, feature, _) } < lowerBound(feature),
+		    count { must featureAtomOfType(domainAtom, feature, _) } < lowerBound(feature),
 		    !must featureAtomOfType(domainAtom, feature, valueAtom)
 		==>
 		    FeatureAtom::of(featureAtom, feature),
