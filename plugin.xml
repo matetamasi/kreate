@@ -6,9 +6,9 @@
    <extension
          point="org.eclipse.ui.commands">
       <command
-            id="hu.bme.mit.kerml.kreate.translate"
-            name="Translate"
-            description="Translate a SysMLv2/KerML model to Refinery"/>
+            id="hu.bme.mit.kerml.kreate.execute"
+            name="Execute"
+            description="Execute a SysMLv2/KerML model with Refinery"/>
    </extension>
 
    <!-- Bind handler to command -->
@@ -16,7 +16,7 @@
          point="org.eclipse.ui.handlers">
       <handler
             class="hu.bme.mit.kerml.kreate.KreateTranslationHandler"
-            commandId="hu.bme.mit.kerml.kreate.translate">
+            commandId="hu.bme.mit.kerml.kreate.execute">
       </handler>
    </extension>
 
@@ -26,8 +26,8 @@
       <menuContribution allPopups="false"
             locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu">
                 <command
-                    commandId="hu.bme.mit.kerml.kreate.translate"
-                    label="Translate to Refinery"
+                    commandId="hu.bme.mit.kerml.kreate.execute"
+                    label="Execute with Refinery"
                     icon="icons/refinery.png"
                     style="push">
                         <visibleWhen checkEnabled="false">
@@ -48,8 +48,8 @@
       <menuContribution allPopups="false"
             locationURI="popup:org.eclipse.jdt.ui.PackageExplorer">
                 <command
-                    commandId="hu.bme.mit.kerml.kreate.translate"
-                    label="Translate to Refinery"
+                    commandId="hu.bme.mit.kerml.kreate.execute"
+                    label="Execute with Refinery"
                     icon="icons/refinery.png"
                     style="push">
                         <visibleWhen checkEnabled="false">
@@ -70,8 +70,8 @@
       <menuContribution allPopups="false"
             locationURI="popup:org.eclipse.sirius.ui.tools.views.model.explorer#PopupMenu">
                 <command
-                    commandId="hu.bme.mit.kerml.kreate.translate"
-                    label="Translate to Refinery"
+                    commandId="hu.bme.mit.kerml.kreate.execute"
+                    label="Execute with Refinery"
                     icon="icons/refinery.png"
                     style="push">
                         <visibleWhen checkEnabled="false">
@@ -86,5 +86,3 @@
       </menuContribution>
    </extension>
 </plugin>
-
-
