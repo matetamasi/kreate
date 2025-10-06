@@ -9,43 +9,43 @@ import hu.bme.mit.kerml.kreate.Translator
 import hu.bme.mit.kerml.kreate.Backannotator
 
 class ObjectProcessor {
-	static def dispatch void translateRoot(Classifier classifier, Collection<EObject> roots) {
+	static def dispatch String translateRoot(Classifier classifier, Collection<EObject> roots, String packageName) {
 		try {
-			System.out.println("Classifier: " + getName(classifier))
 			if ("ToExecute".equals(classifier.effectiveName)) {
-				System.out.println("Found classifier ToExecute")
 				var translation = Translator.translate(classifier, roots);
 				var concreteModel = RefineryProcess.concretize(Translator.userModelComment + translation + Translator.metaModel)
-				System.out.println(concreteModel)
-				println(Backannotator.toKerml(concreteModel))
+				return Backannotator.toKerml(concreteModel, packageName)
 			}
+			return ""
 		} catch(StackOverflowError e) {
 			throw new StackOverflowError("Failed to translate package: " + getName(classifier) + "\n" + e.message)
 		}
 	}
-	static def dispatch void translateRoot(Namespace namespace, Collection<EObject> roots) {
+	static def dispatch String translateRoot(Namespace namespace, Collection<EObject> roots, String packageName) {
 		try {
-			System.out.println("Namespace: " + namespace.effectiveName)
+			var r = "";
 			for (member : namespace.member) {
-				translateRoot(member, roots)
+				r += translateRoot(member, roots, packageName)
 			}
+			return r
 		} catch(StackOverflowError e) {
 			throw new StackOverflowError("Failed to translate namespace: " + namespace.effectiveName + "\n" + e.message)
 		}
 	}
-	static def dispatch void translateRoot(Package pack, Collection<EObject> roots) {
+	static def dispatch String translateRoot(Package pack, Collection<EObject> roots, String packageName) {
 		try {
-			System.out.println("Package: " + pack.effectiveName)
+			var r = "";
 			for (member : pack.member) {
-				translateRoot(member, roots)
+				r += translateRoot(member, roots, packageName)
 			}
+			return r
 		} catch(StackOverflowError e) {
 			throw new StackOverflowError("Failed to translate classifier: " + pack.effectiveName + "\n" + e.message)
 		}
 	}
 
-	static def dispatch void translateRoot(EObject object, Collection<EObject> roots) {
-		//System.out.println("Can't handle EObject: " + object)
+	static def dispatch String translateRoot(EObject object, Collection<EObject> roots, String packageName) {
+		return ""
 	}
 	
 	private static def String getName(Classifier c) {

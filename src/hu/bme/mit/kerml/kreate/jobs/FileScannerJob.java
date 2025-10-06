@@ -1,11 +1,13 @@
 package hu.bme.mit.kerml.kreate.jobs;
 //from gamma
-
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
@@ -20,11 +22,11 @@ import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.handlers.HandlerUtil;
+import org.osgi.framework.FrameworkUtil;
 
 import hu.bme.mit.kerml.kreate.KreateTranslationHandler;
 
 import org.eclipse.emf.ecore.util.EcoreUtil;
-
 
 public class FileScannerJob extends Job {
 
@@ -48,19 +50,24 @@ public class FileScannerJob extends Job {
 
 			// Process input file
 			List<IFile> files = getSelectedFile(mainMonitor.split(5), sel);
+			if(files.size() > 1) {
+				throw new RuntimeException("Generating multiple files at once is currently unsupported");
+			}
 			
 
 			SubMonitor fileMonitor = mainMonitor.split(95);
 			fileMonitor.setWorkRemaining(files.size() * 10);
 			for (IFile file : files) {
-				String path = file.getFullPath().toString();
+				String fileName = file.getFullPath().removeFileExtension().lastSegment();
+				var outFile = file.getLocation().removeLastSegments(1).toPath().toAbsolutePath().resolve(fileName + "-executionResult.kerml");
+				System.out.println(outFile.toString());
 
-				EObject object = loadRootObject(fileMonitor.split(9), path);
-
+				EObject object = loadRootObject(fileMonitor.split(9), file.getFullPath().toString());
 	            List<EObject> objects = getAllEObjects(object.eResource().getResourceSet());
 				
 				Runner runner = new Runner();
-				runner.run(object, objects);
+				runner.run(object, objects, outFile);
+
 			}
 
 			mainMonitor.setTaskName("Done.");
