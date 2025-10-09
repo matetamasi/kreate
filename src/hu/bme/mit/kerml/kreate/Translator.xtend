@@ -41,6 +41,7 @@ class Translator {
 		directSpecializedType(«feature.declaredName», «featureType.declaredName»).
 		lowerBound(«feature.declaredName»): «feature.lower».
 		upperBound(«feature.declaredName»): «feature.upper».
+
 		'''
 	}
 	
@@ -106,8 +107,8 @@ class Translator {
 		% Require existence of root element
 
 		Atom::of(toExecute, ToExecute).
-		
-		
+
+
 		% SysML v2 - M2 element definitions
 
 		abstract class Type {
@@ -115,11 +116,11 @@ class Translator {
 		}
 
 		default !directSpecializedType(*, *).
-		
+
 		pred specializedType(Type sub, Type super) <->
 		    directSpecializedType+(sub, super)
 		.
-		
+
 
 		class Classifier extends Type {
 		    Classifier[0..*] directSuperclass subsets directSpecializedType
@@ -132,9 +133,9 @@ class Translator {
 		pred superclass(Classifier sub, Classifier super) <->
 		    directSuperclass+(sub, super)
 		.
-		
+
 		Classifier(Anything). atom Anything.
-		
+
 
 		class Feature extends Type {
 		    Classifier[1..*] featureTyping subsets directSpecializedType
@@ -156,26 +157,30 @@ class Translator {
 		pred redefinedFeature(Feature sub, Feature super) <->
 		    directRedefinedFeature(sub, super)
 		.
-		
+
 		Feature(things). atom things.
+		lowerBound(things): 0.
+		upperBound(things): 999.
 		typeFeaturing(Anything, things).
 		featureTyping(things, Anything).
 		directSpecializedType(things, Anything).
-		
+
 
 		class Atom {
-		    Classifier[1] of
+		    @decide(false)
+		    Classifier[1..*] of
 		}
-		
+
 		@decide(false)
 		class FeatureAtom {
-		    Feature[1] of
+		    @decide(false)
+		    Feature[1..*] of
 		    Atom[1] domain
 		    Atom[1] value
 		}
-		
-		
-		
+
+
+
 		% SysML v2 - Atom constraints and execution rules
 		import builtin::strategy.
 
@@ -194,42 +199,70 @@ class Translator {
 		    domain(featureAtom, domainAtom),
 		    value(featureAtom, valueAtom)
 		.
-		
+
 		pred featureAtomOfType(domainAtom, feature, valueAtom) <->
 		    specificFeatureAtom(domainAtom, _, feature, valueAtom)
 		.
-		
-		error invalidDomainType(domainAtom, featureAtom) <->
-		    specificFeatureAtom(domainAtom, featureAtom, feature, _),
-		    Atom::of(domainAtom, type),
-		    !typeFeaturing(type, feature)
+
+		error invalidDomainType(FeatureAtom featureAtom) <->
+		    FeatureAtom::of(featureAtom, feature),
+		    typeFeaturing(classifier, feature),
+		    domain(featureAtom, domainAtom),
+		    !Atom::of(domainAtom, classifier)
 		.
-		
-		error invalidValueType(featureAtom, valueAtom) <->
-		    specificFeatureAtom(_, featureAtom, feature, valueAtom),
-		    Atom::of(valueAtom, type),
-		    !featureTyping(feature, type)
+
+		error invalidValueType(FeatureAtom featureAtom) <->
+		    FeatureAtom::of(featureAtom, feature),
+		    featureTyping(feature, classifier),
+		    value(featureAtom, valueAtom),
+		    !Atom::of(valueAtom, classifier)
 		.
-		
+
 		error duplicateFeatureAtom(domainAtom, valueAtom) <->
 		    featureAtomOfType(domainAtom, feature, valueAtom),
 		    count { featureAtomOfType(domainAtom, feature, valueAtom) } > 1
 		.
-		
+
 		error invalidMultiplicity(domainAtom, feature) <->
 		    Atom::of(domainAtom, type),
 		    typeFeaturing(type, feature),
 		    c is count { featureAtomOfType(domainAtom, feature, _) },
 		    c < lowerBound(feature) || c > upperBound(feature)
 		.
-		
+
+		@priority(99)
+		decision rule atomOfSuper(Atom a, Classifier sc) <->
+		    Atom::of(a, c),
+		    superclass(c, sc)
+		==>
+		    Atom::of(a, sc)
+		.
+		error inconsistentAtomType(Atom a) <->
+		    Atom::of(a, c),
+		    superclass(c, sc),
+		    !Atom::of(a, sc)
+		.
+
+		@priority(99)
+		decision rule featureAtomOfSuper(FeatureAtom fa, Feature sf) <->
+		    FeatureAtom::of(fa, f),
+		    specializedType(f, sf)
+		==>
+		    FeatureAtom::of(fa, sf)
+		.
+		error inconsistentFeatureAtomType(FeatureAtom fa, Feature sf) <->
+		    FeatureAtom::of(fa, f),
+		    specializedType(f, sf),
+		    !FeatureAtom::of(fa, sf)
+		.
+
 		@priority(2)
 		decision rule addFeatureAtomToLowerBound(domainAtom, @focus featureAtom, feature, valueType, @focus valueAtom) <->
 		    Atom::of(domainAtom, domainType),
 		    typeFeaturing(domainType, feature),
 		    featureTyping(feature, valueType),
 		    count { must featureAtomOfType(domainAtom, feature, _) } < lowerBound(feature),
-		    !must featureAtomOfType(domainAtom, feature, valueAtom)
+		    !must exists(valueAtom)
 		==>
 		    FeatureAtom::of(featureAtom, feature),
 		    domain(featureAtom, domainAtom),
@@ -242,7 +275,7 @@ class Translator {
 		    typeFeaturing(domainType, feature),
 		    featureTyping(feature, valueType),
 		    count { must featureAtomOfType(domainAtom, feature, _) } < upperBound(feature),
-		    !must featureAtomOfType(domainAtom, feature, valueAtom)
+		    !must exists(valueAtom)
 		==>
 		    FeatureAtom::of(featureAtom, feature),
 		    domain(featureAtom, domainAtom),
