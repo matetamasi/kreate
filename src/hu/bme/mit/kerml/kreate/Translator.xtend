@@ -8,40 +8,75 @@ import org.omg.sysml.lang.sysml.LiteralInteger
 import org.omg.sysml.lang.sysml.LiteralInfinity
 import java.util.Collection
 import org.eclipse.emf.ecore.EObject
+import java.util.Set
+import java.util.HashSet
 
 class Translator {
-	
+
 	def static String translate(Classifier classifier, Collection<EObject> objects) {
-		return hu.bme.mit.kerml.kreate.Translator.classifierTemplate(classifier) +
-			classifier.relevantFeatures.map[translate(it.mostSpecificNonFeatureType, objects)].join
+		var classifiersToTranslate = new HashSet
+		var newClassifiers = Set.of(classifier)
+		while (classifiersToTranslate.size < newClassifiers.size) {
+			classifiersToTranslate.addAll(newClassifiers)
+			val superClasses = classifiersToTranslate.flatMap[it.superclasses]
+//			val features = classifiersToTranslate.flatMap[it.relevantFeatures]
+			val featureClasses = classifiersToTranslate
+				.flatMap[it.relevantFeatures]
+				.flatMap[FeatureUtil.getAllTypesOf(it)]
+				.filter[it instanceof Classifier]
+				.map[it as Classifier]
+			newClassifiers = (superClasses + featureClasses).toSet
+		}
+		
+		return classifiersToTranslate.map[classifierTemplate(it)].join("\n") + "\n" + 
+		classifiersToTranslate.map[c |
+			c.relevantFeatures.map[f |
+				featureTemplate(f, c)
+			]
+		].flatten.join("\n")
+
 	}
 	
 	def static String classifierTemplate(Classifier classifier) {
-		val featureDefinitions = classifier.relevantFeatures
-			.map[featureTemplate(
-				it,
-				classifier,
-				it.mostSpecificNonFeatureType
-			)]
-			.join("\n")
 		return '''
 		Classifier(«classifier.name»).
-		directSuperclass(«classifier.name», Anything).
-		directSpecializedType(«classifier.name», Anything).
+		«FOR superclass : classifier.superclasses»
+		directSuperclass(«classifier.name», «superclass.name»).
+		directSpecializedType(«classifier.name», «superclass.name»).
+		«ENDFOR»
+		«IF classifier.abstract»
+		isAbstract(«classifier.name»).
+		«ENDIF»
 
-		''' + featureDefinitions
+		'''
 	}
-	def private static String featureTemplate(Feature feature, Classifier featuringType, Classifier featureType) {
+	def private static String featureTemplate(Feature feature, Classifier featuringType) {
 		return '''
 		Feature(«feature.declaredName»).
 		typeFeaturing(«featuringType.declaredName», «feature.declaredName»).
-		directSubsettedFeature(«feature.declaredName», things).
-		directSpecializedType(«feature.declaredName», things).
+«««		directSubsettedFeature(«feature.declaredName», things).
+«««		directSpecializedType(«feature.declaredName», things).
+		«IF !FeatureUtil.getRedefinedFeaturesOf(feature).empty»
+		«FOR redefined : FeatureUtil.getRedefinedFeaturesOf(feature)»
+		directRedefinedFeature(«feature.declaredName», «redefined.declaredName»).
+		directSpecializedType(«feature.declaredName», «redefined.declaredName»).
+		«ENDFOR»
+		«ENDIF»
+		«IF !FeatureUtil.getSubsettedFeaturesOf(feature).empty»
+		«FOR subsetted : FeatureUtil.getSubsettedFeaturesOf(feature)»
+		directSubsettedFeature(«feature.declaredName», «subsetted.declaredName»).
+		directSpecializedType(«feature.declaredName», «subsetted.declaredName»).
+		«ENDFOR»
+		«ENDIF»
+		«FOR featureType : FeatureUtil.getAllTypesOf(feature).filter[it instanceof Classifier]»
 		featureTyping(«feature.declaredName», «featureType.declaredName»).
 		directSpecializedType(«feature.declaredName», «featureType.declaredName»).
+		«ENDFOR»
 		lowerBound(«feature.declaredName»): «feature.lower».
 		upperBound(«feature.declaredName»): «feature.upper».
-
+		«IF feature.abstract»
+		isAbstract(«feature.name»).
+		«ENDIF»
 		'''
 	}
 	
@@ -50,17 +85,6 @@ class Translator {
 			"self" != it.declaredName &&
 			"that" != it.declaredName
 		].toList
-	}
-	
-	def private static Classifier mostSpecificNonFeatureType(Feature feature) {
-		var classifierTypes = feature.type.filter[it instanceof Classifier].map[it as Classifier]
-		
-		for (Classifier classifier : classifierTypes) {
-			if (!classifierTypes.map[classifier.allSupertypes.contains(it)].contains(true)) {
-				return classifier
-			}
-		}
-		throw new RuntimeException('''No most specific classifier type found for «feature.type».''')
 	}
 	
 	def private static int upper(Feature feature) {
@@ -76,6 +100,10 @@ class Translator {
 		} else {
 			throw new RuntimeException("Upper multiplicity was not LiteralInteger or LiteralInfinity.")
 		} 
+	}
+	
+	def private static List<Classifier> superclasses(Classifier c) {
+		return c.allSupertypes.filter[it instanceof Classifier].map[it as Classifier].toList
 	}
 
 	def private static int lower(Feature feature) {
@@ -113,8 +141,10 @@ class Translator {
 
 		abstract class Type {
 		    Type[0..*] directSpecializedType
+		    boolean isAbstract
 		}
 
+		default !isAbstract(*).
 		default !directSpecializedType(*, *).
 
 		pred specializedType(Type sub, Type super) <->
@@ -224,10 +254,27 @@ class Translator {
 		.
 
 		error invalidMultiplicity(domainAtom, feature) <->
+			!isAbstract(type),
 		    Atom::of(domainAtom, type),
 		    typeFeaturing(type, feature),
 		    c is count { featureAtomOfType(domainAtom, feature, _) },
 		    c < lowerBound(feature) || c > upperBound(feature)
+		.
+		
+		error invalidSubsetting(Feature subsetting, Feature subsetted) <-> 
+		    subsettedFeature(subsetting, subsetted),
+		    FeatureAtom::of(fa, subsetting),
+		    !FeatureAtom::of(fa, subsetted)
+		.
+		
+		error invalidRedefinition() <->
+		    redefinedFeature(redefining, redefined),
+		    FeatureAtom::of(fa, redefining),
+		    !FeatureAtom::of(fa, redefined)
+		;
+		    redefinedFeature(redefining, redefined),
+		    FeatureAtom::of(fa, redefined),
+		    !FeatureAtom::of(fa, redefining)
 		.
 
 		@priority(99)
@@ -258,11 +305,14 @@ class Translator {
 
 		@priority(2)
 		decision rule addFeatureAtomToLowerBound(domainAtom, @focus featureAtom, feature, valueType, @focus valueAtom) <->
+			!isAbstract(feature),
+			!isAbstract(valueType),
 		    Atom::of(domainAtom, domainType),
 		    typeFeaturing(domainType, feature),
 		    featureTyping(feature, valueType),
 		    count { must featureAtomOfType(domainAtom, feature, _) } < lowerBound(feature),
-		    !must exists(valueAtom)
+		    !must exists(valueAtom),
+		    !must exists(featureAtom)
 		==>
 		    FeatureAtom::of(featureAtom, feature),
 		    domain(featureAtom, domainAtom),
@@ -271,16 +321,49 @@ class Translator {
 		.
 
 		decision rule addOptionalFeatureAtom(domainAtom, @focus featureAtom, feature, valueType, @focus valueAtom) <->
+		    !isAbstract(feature),
+		    !isAbstract(valueType),
 		    Atom::of(domainAtom, domainType),
 		    typeFeaturing(domainType, feature),
 		    featureTyping(feature, valueType),
 		    count { must featureAtomOfType(domainAtom, feature, _) } < upperBound(feature),
-		    !must exists(valueAtom)
+		    !must exists(valueAtom),
+		    !must exists(featureAtom)
 		==>
 		    FeatureAtom::of(featureAtom, feature),
 		    domain(featureAtom, domainAtom),
 		    value(featureAtom, valueAtom),
 		    Atom::of(valueAtom, valueType)
+		.
+
+		%% Abstract constraints
+
+		pred atomOfNonAbstractSub(Atom a, Classifier ac) <->
+		    isAbstract(ac),
+		    Atom::of(a, ac),
+		    Atom::of(a, c),
+		    superclass(c, ac),
+		    !isAbstract(c)
+		.
+		error abstractAtomWithoutSpecificType(Atom a) <->
+		    Classifier(ac),
+		    isAbstract(ac),
+		    Atom::of(a, ac),
+		    !atomOfNonAbstractSub(a, ac)
+		.
+
+		pred featureAtomOfNonAbstractSub(FeatureAtom fa, Feature af) <->
+		    isAbstract(af),
+		    FeatureAtom::of(fa, af),
+		    FeatureAtom::of(fa, f),
+		    specializedType(f, af),
+		    !isAbstract(f)
+		.
+		error abstractFeatureAtomWithoutSpecificType(FeatureAtom fa) <->
+		    Feature(f),
+		    isAbstract(f),
+		    FeatureAtom::of(fa, f),
+		    !featureAtomOfNonAbstractSub(fa, f)
 		.
 		'''
 	}
