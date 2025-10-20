@@ -1,4 +1,4 @@
-package hu.bme.mit.kerml.kreate.model;
+package hu.bme.mit.kerml.kreate.model.backannotation;
 
 import java.util.HashMap;
 import java.util.List;
@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import hu.bme.mit.kerml.kreate.model.Pair;
 
 public class Graph {
 	private Map<String, Atom> atoms = new HashMap<String, Atom>();
@@ -30,12 +32,12 @@ public class Graph {
 	}
 	
 	private final List<Pair<Pattern, Consumer<Matcher>>> patterns = List.of(
-			new Pair<>(Pattern.compile("^Atom\\((.*)\\)\\.$"), (m) -> addAtom(m.group(1))),
-			new Pair<>(Pattern.compile("^Atom::of\\((.*), (.*)\\)\\.$"), (m) -> addAtom(m.group(1)).of(addClassifier(m.group(2)))),
-			new Pair<>(Pattern.compile("^FeatureAtom\\((.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1))),
-			new Pair<>(Pattern.compile("^FeatureAtom::of\\((.*), (.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1)).of(addFeature(m.group(2)))),
-			new Pair<>(Pattern.compile("^domain\\((.*), (.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1)).domain(addAtom(m.group(2)))),
-			new Pair<>(Pattern.compile("^value\\((.*), (.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1)).value(addAtom(m.group(2))))
+			Pair.of(Pattern.compile("^Atom\\((.*)\\)\\.$"), (m) -> addAtom(m.group(1))),
+			Pair.of(Pattern.compile("^Atom::of\\((.*), (.*)\\)\\.$"), (m) -> addAtom(m.group(1)).of(addClassifier(m.group(2)))),
+			Pair.of(Pattern.compile("^FeatureAtom\\((.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1))),
+			Pair.of(Pattern.compile("^FeatureAtom::of\\((.*), (.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1)).of(addFeature(m.group(2)))),
+			Pair.of(Pattern.compile("^domain\\((.*), (.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1)).domain(addAtom(m.group(2)))),
+			Pair.of(Pattern.compile("^value\\((.*), (.*)\\)\\.$"), (m) -> addFeatureAtom(m.group(1)).value(addAtom(m.group(2))))
 	);
 	
 	public static final Graph generate(String s) {
@@ -53,8 +55,8 @@ public class Graph {
 	private final void addString(String line) {
 		for (Pair<Pattern, Consumer<Matcher>> pair : patterns) {
 			Matcher m;
-			if ((m = pair.a().matcher(line)).matches()) {
-				pair.b().accept(m);
+			if ((m = pair.k().matcher(line)).matches()) {
+				pair.v().accept(m);
 				break;
 			}
 		}

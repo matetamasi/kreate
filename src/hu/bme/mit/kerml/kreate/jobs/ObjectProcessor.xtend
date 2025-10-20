@@ -13,8 +13,9 @@ class ObjectProcessor {
 		try {
 			if ("ToExecute".equals(classifier.effectiveName)) {
 				var translation = Translator.translate(classifier, roots);
-				var concreteModel = RefineryProcess.concretize(Translator.userModelComment + translation + Translator.metaModel)
-				return Backannotator.toKerml(concreteModel, packageName)
+				println(translation + Translator.metaModel)
+//				var concreteModel = RefineryProcess.concretize(Translator.userModelComment + translation + Translator.metaModel)
+//				return Backannotator.toKerml(concreteModel, packageName)
 			}
 			return ""
 		} catch(StackOverflowError e) {

@@ -1,4 +1,4 @@
-package hu.bme.mit.kerml.kreate.model;
+package hu.bme.mit.kerml.kreate.model.backannotation;
 
 public class Feature {
 	private int nameCounter = 1;

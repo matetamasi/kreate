@@ -1,4 +1,4 @@
-package hu.bme.mit.kerml.kreate.model;
+package hu.bme.mit.kerml.kreate.model.backannotation;
 
 public class Atom {
 	Classifier of;
@@ -8,7 +8,7 @@ public class Atom {
 		return of;
 	}
 
-	public void of(Classifier c) {
+	public void of(Classifier c) { //TODO: multiple elements
 		of = c;
 	}
 	public String generatedName() {

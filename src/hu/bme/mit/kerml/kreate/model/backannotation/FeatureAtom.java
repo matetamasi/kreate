@@ -1,4 +1,4 @@
-package hu.bme.mit.kerml.kreate.model;
+package hu.bme.mit.kerml.kreate.model.backannotation;
 
 public class FeatureAtom {
 	private String generatedName;

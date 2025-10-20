@@ -1,19 +1,28 @@
 package hu.bme.mit.kerml.kreate.model;
 
-public class Pair<A, B> {
-	private A a;
-	private B b;
+public record Pair<K, V>(K k, V v) {
+//	private K k;
+//	private V v;
 
-	public Pair(A a, B b) {
-		this.a = a;
-		this.b = b;
+//	private Pair(K k, V v) {
+//		this.k = k;
+//		this.v = v;
+//	}
+	
+	public static <K, V> Pair<K, V> of(K k, V v) {
+		return new Pair<>(k, v);
 	}
 
-	public A a() {
-		return a;
+	public K k() {
+		return k;
 	}
 	
-	public B b() {
-		return b;
+	public V v() {
+		return v;
+	}
+	
+	@Override
+	public String toString() {
+		return k.toString() + " -> " + v.toString();
 	}
 }
