@@ -1,5 +1,7 @@
 package hu.bme.mit.kerml.kreate.model.Trace;
 
+import java.util.List;
+
 import org.omg.sysml.lang.sysml.Classifier;
 import org.omg.sysml.lang.sysml.Feature;
 import org.omg.sysml.lang.sysml.Type;
@@ -20,13 +22,25 @@ public class FeaturingData {
 	}
 	
 	private String generateName() {
+		if (!f.getChainingFeature().isEmpty()) {
+			List<String> chainNames = f.getChainingFeature().stream().map(x -> x.getDeclaredName()).toList();
+			String tName = "Unknown";
+			if (t != null && t.getDeclaredName() != null) {
+				tName = t.getDeclaredName();
+			}
+			return "chain_" + tName + "_" + String.join("_", chainNames);
+		}
 		String featuringTypeName = "Unknown";
 		if (t != null && t.getDeclaredName() != null) {
 				featuringTypeName = t.getDeclaredName();
 		}
+		String featureName = "unknown";
+		if (f != null && f.getDeclaredName() != null) {
+				featuringTypeName = f.getDeclaredName();
+		}
 		Classifier featureTyping = FeatureUtil.getFirstTypeOf(f, Classifier.class);
-		String featureTypingName = featureTyping.getDeclaredName() != null ? featureTyping.getDeclaredName() : "unknown";
-		return featuringTypeName + "_to_" + featureTypingName;
+		String featureTypingName = featureTyping != null && featureTyping.getDeclaredName() != null ? featureTyping.getDeclaredName() : "unknown";
+		return featureName + "_" + featuringTypeName + "_to_" + featureTypingName;
 	}
 
 	public Feature getF() {
