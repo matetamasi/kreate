@@ -57,6 +57,7 @@ class Translator {
 		«IF classifier.abstract»
 		isAbstract(«classifier.name»).
 		«ENDIF»
+		label(«classifier.name»): "«classifier.name»".
 
 		'''
 	}
@@ -68,29 +69,42 @@ class Translator {
 //		var fcName = "chain_" + featuringType.declaredName + feature.chainingFeature.map[declaredName].join("_")
 		var fcName = fd.name
 		return'''
-			Feature(«fcName»).
 			FeatureChain(«fcName»).
-			FeatureChain::source(«fcName», «featuringType.declaredName»).
-			first(«fcName», «fcName»_1).
-			«var counter = 1»
-			«FOR link : feature.chainingFeature»
-				ChainAdapter(«fcName»_«counter»).
-				head(«fcName»_«counter», «link.declaredName»).
-				«IF counter < feature.chainingFeature.size»
-				tail(«fcName»_«counter», «fcName»_«counter++ + 1»).
-				«ENDIF»
-			«ENDFOR»
+			FeatureChain::first(«fcName», «feature.chainingFeature.get(0).declaredName»).
+			FeatureChain::second(«fcName», «
+			IF feature.chainingFeature.size == 2»«
+				feature.chainingFeature.get(1).declaredName
+			»«ELSE
+			»«fcName.replaceFirst("[a-zA-Z0-9]*_","")»«
+			ENDIF»).
+			«««NOTE: We don't use recursion here, just assume the tail chain will also be discovered»»»
+«««			first(«fcName», «fcName»_1).
+«««			«var counter = 1»
+«««			«FOR link : feature.chainingFeature»
+«««				ChainAdapter(«fcName»_«counter»).
+«««				head(«fcName»_«counter», «link.declaredName»).
+«««				«IF counter < feature.chainingFeature.size»
+«««				tail(«fcName»_«counter», «fcName»_«counter++ + 1»).
+«««				«ENDIF»
+«««			«ENDFOR»
 		'''
 	}
 	def private static String featureTemplate(FeaturingData fd) {
-		if (!fd.f.chainingFeature.empty) {
-			return chainingTemplate(fd)
-		}
+//		var String prepend
+//		if (!fd.f.chainingFeature.empty) {
+//			prepend = chainingTemplate(fd)
+//		} else {
+//			prepend = "!FeatureChain()"
+//		}
 		val feature = fd.f
 		val featuringType = fd.t
 		val fName = fd.name
 		return '''
-		
+		«IF fd.f.chainingFeature.empty»
+			!FeatureChain(«fName»).
+		«ELSE»
+			«chainingTemplate(fd)»
+		«ENDIF»
 		Feature(«fName»).
 		typeFeaturing(«featuringType.declaredName», «fName»).
 		«FOR redefined : FeatureUtil.getRedefinedFeaturesOf(feature)»
@@ -110,6 +124,7 @@ class Translator {
 		«IF feature.abstract»
 		isAbstract(«feature.name»).
 		«ENDIF»
+		label(«fName»): "«fName»".
 		'''
 	}
 	
