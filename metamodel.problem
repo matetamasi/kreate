@@ -1,0 +1,455 @@
+% Require existence of root element
+ClassifierAtom::of(toExecute, ToExecute).
+
+%TODO Atom and subclasses are not yet propagated: AtomOf -> classifierAtomOf, featureAtomOf
+
+% SysML v2 - M2 element definitions
+
+abstract class Type {
+    Type[0..*] directSpecializedType
+    Feature[0..*] typeFeaturing
+    boolean isAbstract
+}
+
+default !isAbstract(*).
+default !directSpecializedType(*, *).
+
+pred specializedType(Type sub, Type super) <->
+    directSpecializedType+(sub, super)
+.
+
+
+class Classifier extends Type {
+    Classifier[0..*] directSuperclass subsets directSpecializedType
+    string label
+}
+
+!exists(Classifier::new).
+default !typeFeaturing(*, *).
+
+pred superclass(Classifier sub, Classifier super) <->
+    directSuperclass+(sub, super)
+.
+
+Classifier(Anything). atom Anything.
+
+
+class Feature extends Type {
+    Classifier[1..*] featureTyping subsets directSpecializedType
+    Feature[0..*] directSubsettedFeature subsets directSpecializedType
+    Feature[0..*] directRedefinedFeature subsets directSubsettedFeature
+    int lowerBound
+    int upperBound
+}
+
+!exists(Feature::new).
+default !featureTyping(*, *).
+default !directSubsettedFeature(*, *).
+default !directRedefinedFeature(*, *).
+
+pred subsettedFeature(Feature sub, Feature super) <->
+    directSubsettedFeature+(sub, super)
+.
+
+pred redefinedFeature(Feature sub, Feature super) <->
+    directRedefinedFeature(sub, super)
+.
+
+Feature(things). atom things.
+lowerBound(things): 0.
+upperBound(things): 999.
+typeFeaturing(Anything, things).
+featureTyping(things, Anything).
+directSpecializedType(things, Anything).
+
+
+abstract class Atom {
+    @decide(false)
+    Type[1..*] of
+    boolean reused
+}
+
+@decide(false)
+class ClassifierAtom extends Atom {
+    @decide(false)
+    Classifier[1..*] of subsets Atom::of
+}
+
+
+@decide(false)
+class FeatureAtom extends Atom {
+    @decide(false)
+    Feature[1..*] of subsets Atom::of
+    Atom[1] domain
+    Atom[1] value
+    string dummy
+}
+
+
+
+% SysML v2 - Atom constraints and execution rules
+import builtin::strategy.
+
+pred CorrectFeatureAtom(FeatureAtom a) <->
+    typeFeaturing(tft, f),
+    featureTyping(f, ftt),
+    FeatureAtom::of(a, f),
+    FeatureAtom::domain(a, da),
+    FeatureAtom::value(a, va),
+    Atom::of(da, tft),
+    Atom::of(va, ftt)
+.
+
+pred specificFeatureAtom(Atom domainAtom, FeatureAtom featureAtom, Feature feature, Atom valueAtom) <->
+    FeatureAtom::of(featureAtom, feature),
+    FeatureAtom::domain(featureAtom, domainAtom),
+    FeatureAtom::value(featureAtom, valueAtom)
+.
+
+pred featureAtomOfType(Atom domainAtom, Feature feature, Atom valueAtom) <->
+    specificFeatureAtom(domainAtom, _, feature, valueAtom)
+.
+
+error invalidDomainType(FeatureAtom featureAtom) <->
+    FeatureAtom::of(featureAtom, feature),
+    typeFeaturing(classifier, feature),
+    domain(featureAtom, domainAtom),
+    !Atom::of(domainAtom, classifier)
+.
+
+error invalidValueType(FeatureAtom featureAtom) <->
+    FeatureAtom::of(featureAtom, feature),
+    featureTyping(feature, classifier),
+    value(featureAtom, valueAtom),
+    !Atom::of(valueAtom, classifier)
+.
+
+error duplicateFeatureAtom(domainAtom, valueAtom) <->
+    featureAtomOfType(domainAtom, feature, valueAtom),
+    count { featureAtomOfType(domainAtom, feature, valueAtom) } > 1
+.
+
+error invalidMultiplicity(domainAtom, feature) <->
+	!isAbstract(type),
+    Atom::of(domainAtom, type),
+    typeFeaturing(type, feature),
+    c is count { featureAtomOfType(domainAtom, feature, _) },
+    c < lowerBound(feature) || c > upperBound(feature)
+.
+
+error invalidSubsetting(Feature subsetting, Feature subsetted, FeatureAtom fa) <->
+    subsettedFeature(subsetting, subsetted),
+    FeatureAtom::of(fa, subsetting),
+    !FeatureAtom::of(fa, subsetted)
+.
+
+error invalidRedefinition() <->
+    redefinedFeature(redefining, redefined),
+    FeatureAtom::of(fa, redefining),
+    !FeatureAtom::of(fa, redefined)
+;
+    redefinedFeature(redefining, redefined),
+    FeatureAtom::of(fa, redefined),
+    !FeatureAtom::of(fa, redefining)
+.
+
+propagation rule atomOfSuper(ClassifierAtom a, Classifier sc) <->
+    ClassifierAtom::of(a, c),
+    superclass(c, sc)
+==>
+    ClassifierAtom::of(a, sc)
+.
+error inconsistentAtomType(Atom a) <->
+    Atom::of(a, c),
+    superclass(c, sc),
+    !Atom::of(a, sc)
+.
+
+propagation rule featureAtomOfSuper(FeatureAtom fa, Feature sf) <->
+    FeatureAtom::of(fa, f),
+    specializedType(f, sf)
+==>
+    FeatureAtom::of(fa, sf)
+.
+
+error inconsistentFeatureAtomType(FeatureAtom fa, Feature sf) <->
+    FeatureAtom::of(fa, f),
+    specializedType(f, sf),
+    !FeatureAtom::of(fa, sf)
+.
+
+
+shadow pred mayAddFeatureAtom(
+    Atom domainAtom,
+    FeatureAtom featureAtom,
+    Feature feature,
+    Type valueType,
+    Atom valueAtom
+) <->
+    must !isAbstract(feature),
+	must !isAbstract(valueType),
+    must Atom::of(domainAtom, domainType),
+    must typeFeaturing(domainType, feature),
+    must featureTyping(feature, valueType),
+    may !equals(featureAtom, featureAtom)
+.
+
+pred addFeatureAtom(
+    Atom domainAtom,
+    FeatureAtom featureAtom,
+    Feature feature,
+    Type valueType,
+    Atom valueAtom
+) <->
+    FeatureAtom::of(featureAtom, feature),
+    domain(featureAtom, domainAtom),
+    value(featureAtom, valueAtom),
+    Atom::of(valueAtom, valueType)
+.
+
+propagation rule setAddFeatureAtom(
+    domainAtom,
+    featureAtom,
+    feature,
+    valueType,
+    Atom valueAtom
+) <->
+    addFeatureAtom(
+        domainAtom,
+        featureAtom,
+        feature,
+        valueType,
+        valueAtom
+    )
+==>
+    FeatureAtom::of(featureAtom, feature),
+    domain(featureAtom, domainAtom),
+    value(featureAtom, valueAtom),
+    Atom::of(valueAtom, valueType)
+.
+
+propagation rule setAddClassifierFeatureAtom(
+    domainAtom,
+    featureAtom,
+    feature,
+    valueType,
+    ClassifierAtom valueAtom 
+) <->
+    addFeatureAtom(
+        domainAtom,
+        featureAtom,
+        feature,
+        valueType,
+        valueAtom
+    )
+==>
+    FeatureAtom::of(featureAtom, feature),
+    domain(featureAtom, domainAtom),
+    value(featureAtom, valueAtom),
+    ClassifierAtom::of(valueAtom, valueType)
+.
+
+shadow pred featureAtomCountBelowLowerBound(Atom domainAtom, Feature feature) <->
+    count { must featureAtomOfType(domainAtom, feature, _) } < lowerBound(feature)
+.
+
+shadow pred featureAtomCountBelowUpperBound(Atom domainAtom, Feature feature) <->
+    count { must featureAtomOfType(domainAtom, feature, _) } < upperBound(feature)
+.
+
+% TODO should probably look like the createVAlueless....
+@priority(4)
+@weight(20.0)
+decision rule reuseExistingValueAtomToLowerBound(
+    Atom domainAtom,
+    @focus FeatureAtom featureAtom,
+    Feature feature,
+    Type valueType,
+    Atom valueAtom
+) <->
+    mayAddFeatureAtom(domainAtom, featureAtom, feature, valueType, valueAtom),
+    featureAtomCountBelowLowerBound(domainAtom, feature)
+==>
+    addFeatureAtom(domainAtom, featureAtom, feature, valueType, valueAtom),
+    reused(valueAtom): true
+.
+
+% @priority(2)
+% decision rule addNewFeatureAtomToUpperBound(
+%     Atom domainAtom,
+%     @focus FeatureAtom featureAtom,
+%     Feature feature,
+%     Classifier valueType,
+%     @focus ClassifierAtom valueAtom
+% ) <->
+%     mayAddFeatureAtom(domainAtom, featureAtom, feature, valueType, valueAtom),
+%     may !equals(valueAtom, valueAtom),
+%     featureAtomCountBelowUpperBound(domainAtom, feature)
+% ==>
+%     addFeatureAtom(domainAtom, featureAtom, feature, valueType, valueAtom)
+% .
+
+% @priority(2)
+% decision rule reuseExistingValueAtomToUpperBound(
+%     Atom domainAtom,
+%     @focus FeatureAtom featureAtom,
+%     Feature feature,
+%     Type valueType,
+%     Atom valueAtom
+% ) <->
+%     mayAddFeatureAtom(domainAtom, featureAtom, feature, valueType, valueAtom),
+%     featureAtomCountBelowUpperBound(domainAtom, feature)
+% ==>
+%     addFeatureAtom(domainAtom, featureAtom, feature, valueType, valueAtom),
+%     reused(valueAtom): true
+% .
+
+pred atomWithFeatureAtomOfType(Atom atom, Feature feature, FeatureAtom featureAtom) <->
+    Atom::of(atom, type),
+    typeFeaturing(type, feature),
+    FeatureAtom::of(featureAtom, feature),
+    FeatureAtom::domain(featureAtom, atom)
+.
+
+@priority(4)
+@weight(80.0)
+decision rule createValuelessFeatureAtomToLowerBound(
+    Atom domainAtom,
+    @focus FeatureAtom featureAtom,
+    Feature feature
+) <->
+    !FeatureChain(feature), %TODO: does not finish if this line is here!!
+    may !equals(featureAtom, featureAtom),
+    !isAbstract(feature),
+    must Atom::of(domainAtom, type),
+    must typeFeaturing(type, feature),
+    count {must atomWithFeatureAtomOfType(domainAtom, feature, _)} < lowerBound(feature)
+
+==>
+    FeatureAtom::of(featureAtom, feature),
+    domain(featureAtom, domainAtom)
+.
+
+@priority(99)
+decision rule createClassifierAtomAsValue(FeatureAtom featureAtom, Classifier valueType, @focus ClassifierAtom value) <->
+    may !value(featureAtom, _),
+    may !equals(value, value),
+    !isAbstract(valueType),
+    FeatureAtom::of(featureAtom, feature),
+    featureTyping(feature, valueType)
+==>
+    ClassifierAtom::of(value, valueType),
+    value(featureAtom, value)
+.
+
+propagation rule atomOfClassifierAtomOf(ClassifierAtom a, Classifier c) <->
+    Atom::of(a, c)
+==>
+    ClassifierAtom::of(a, c)
+.
+
+propagation rule atomOfFeatureAtomOf(FeatureAtom a, Feature f) <->
+    Atom::of(a, f)
+==>
+    FeatureAtom::of(a, f)
+.
+
+%% Abstract constraints
+
+pred atomOfNonAbstractSub(ClassifierAtom a, Classifier ac) <->
+    isAbstract(ac),
+    ClassifierAtom::of(a, ac),
+    ClassifierAtom::of(a, c),
+    superclass(c, ac),
+    !isAbstract(c)
+.
+error abstractAtomWithoutSpecificType(ClassifierAtom a) <->
+    Classifier(ac),
+    isAbstract(ac),
+    ClassifierAtom::of(a, ac),
+    !atomOfNonAbstractSub(a, ac)
+.
+
+pred featureAtomOfNonAbstractSub(FeatureAtom fa, Feature af) <->
+    isAbstract(af),
+    FeatureAtom::of(fa, af),
+    FeatureAtom::of(fa, f),
+    specializedType(f, af),
+    !isAbstract(f)
+.
+error abstractFeatureAtomWithoutSpecificType(FeatureAtom fa) <->
+    Feature(f),
+    isAbstract(f),
+    FeatureAtom::of(fa, f),
+    !featureAtomOfNonAbstractSub(fa, f)
+.
+
+%% Feature chaining
+
+pred FeatureChainInstance(FeatureAtom fa) <->
+    Atom::of(fa, f),
+    FeatureChain(f)
+.
+
+@decide(false)
+class FeatureChain extends Feature {
+    @decide(false)
+    Feature [1] first
+    @decide(false)
+    Feature [1] second
+}
+!exists(FeatureChain::new).
+
+shadow pred chainExists(FeatureChain fc, Atom a1, Atom a3) <->
+    FeatureAtom::of(fa, fc),
+    FeatureAtom::domain(fa, a1),
+    FeatureAtom::value(fa, a3)
+.
+
+error pred duplicateChainInstance(FeatureAtom ci1, FeatureAtom ci2) <->
+    FeatureChain(fc),
+    FeatureAtom::of(ci1, fc),
+    FeatureAtom::domain(ci1, d),
+    FeatureAtom::value(ci1, v),
+    FeatureAtom::of(ci2, fc),
+    FeatureAtom::domain(ci2, d),
+    FeatureAtom::value(ci2, v),
+    ci1 != ci2
+.
+
+pred chainMayExist(Atom a1, Atom a3, FeatureChain fc) <->
+    specificFeatureAtom(a1, _, first, a2),
+    specificFeatureAtom(a2, _, second, a3),
+    FeatureChain::first(fc, first),
+    FeatureChain::second(fc, second)
+.
+
+@priority(5)
+decision rule instantiateChain(FeatureChain fc, @focus FeatureAtom chainInstance, Atom a1, Atom a3) <->
+    % must specificFeatureAtom(a1, _, first, a2),
+    % must specificFeatureAtom(a2, _, second, a3),
+    % must FeatureChain::first(fc, first),
+    % must FeatureChain::second(fc, second),
+    must chainMayExist(a1, a3, fc),
+    may !equals(chainInstance, chainInstance),
+    may !chainExists(fc, a1, a3)
+==>
+    FeatureAtom::of(chainInstance, fc),
+    FeatureAtom::domain(chainInstance, a1),
+    FeatureAtom::value(chainInstance, a3)
+.
+
+error invalidFeatureChain(FeatureChain fc, FeatureAtom chainInstance) <->
+    FeatureAtom::of(chainInstance, fc),
+    FeatureAtom::domain(chainInstance, a1),
+    FeatureAtom::value(chainInstance, a3),
+    !chainMayExist(a1, a3, fc)
+.
+    
+    
+% TODO: implement this in the pilot
+% propagation rule deriveChainFeatureTyping(FeatureChain fc, Type t) <->
+%     FeatureChain::second(fc, s),
+%     Feature::featureTyping(s, t)
+% ==>
+%     Feature::featureTyping(fc, t).

@@ -3,3 +3,4 @@
 xtend-gen/
 refinery*
 *.problem
+!/metamodel.problem
